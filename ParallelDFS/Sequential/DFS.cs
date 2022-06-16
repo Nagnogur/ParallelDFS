@@ -7,43 +7,9 @@ namespace ParallelDFS.Sequential
 {
     class DFS
     {
-        bool[] visited;
-
-        void DFSUtil(Vertex v)
+        public HashSet<Vertex> visited = new HashSet<Vertex>();
+        public Vertex[] DepthFirstTraversal(int n, Vertex start, Vertex end = null)
         {
-            // Mark the current
-            // node as visited and print it
-            visited[v.Id] = true;
-            //Console.Write(v.Id + " - ");
-
-            // Recur for all the
-            // vertices adjacent to this
-            // vertex
-            foreach (var i in v.Edges)
-            {
-                if (!visited[i.Id])
-                    DFSUtil(i);
-            }
-        }
-
-        public bool[] DFSSequential(Graph graph, int startId)
-        {
-            // Mark all the vertices as not visited(set as
-            // false by default in java)
-            int verticesNum = graph.vertices.Count;
-            visited = new bool[verticesNum];
-
-            // Call the recursive helper
-            // function to print DFS
-            // traversal starting from
-            // all vertices one by one
-            DFSUtil(graph.vertices[startId]);
-            return visited;
-        }
-
-        public static Vertex[] DepthFirstTraversal(int n, Vertex start, Vertex end = null)
-        {
-            var visited = new HashSet<Vertex>();
             var stack = new Stack<Vertex>();
             Vertex[] parentMap = new Vertex[n];
 
