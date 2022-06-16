@@ -11,16 +11,16 @@ namespace ParallelDFS.ParallelSearch
     public class Try
     {
         volatile bool stopThreads = false;
-        static int numberOfCores = 4;
+        static int numberOfCores = Settings.PARALELLISM_DEGREE;
 
-        List<ConcurrentStack<Vertex>> stacks = new List<ConcurrentStack<Vertex>>(numberOfCores);
+        List<ConcurrentStack<Vertex>> Stacks = new List<ConcurrentStack<Vertex>>(numberOfCores);
 
         public ConcurrentDictionary<Vertex, byte> Visited { get; set; } = new ConcurrentDictionary<Vertex, byte>();
         public ConcurrentDictionary<Vertex, Vertex> Parents { get; set; } = new ConcurrentDictionary<Vertex, Vertex>();
 
         public void Start(Vertex start, Vertex end = null)
         {
-            stacks = SplitVertexList(start.Edges, numberOfCores);
+            Stacks = SplitVertexList(start.Edges, numberOfCores);
             Visited.TryAdd(start, 0);
             if (start.Equals(end))
             {
@@ -54,7 +54,7 @@ namespace ParallelDFS.ParallelSearch
 
         public void Search(int stackId, Vertex previous, Vertex end = null)
         {
-            while (!stacks[stackId].IsEmpty)
+            while (!Stacks[stackId].IsEmpty)
             {
                 if (stopThreads)
                 {
@@ -62,15 +62,16 @@ namespace ParallelDFS.ParallelSearch
                 }
 
                 // if thread stack is empty try to get work 
-                if (stacks[stackId].IsEmpty)
+                if (Stacks[stackId].IsEmpty)
                 {
                     // TODO
+                    SplitStack(stackId);
                     return;
                 }
 
                 Vertex current;
                 // There is elements in stack. Get top one
-                if (stacks[stackId].TryPop(out current))
+                if (Stacks[stackId].TryPop(out current))
                 {
                     // current == end
                     if (current.Equals(end))
@@ -96,12 +97,38 @@ namespace ParallelDFS.ParallelSearch
                     {
                         if (!Visited.ContainsKey(neighbour))
                         {
-                            stacks[stackId].Push(neighbour);
+                            Stacks[stackId].Push(neighbour);
                             Parents.TryAdd(neighbour, current);
                         }
                     }
                 }
             }
+        }
+
+        void SplitStack(int stackId)
+        {
+            int target = (stackId + 1) % numberOfCores;
+            for (int j = 0; j < Settings.NUMRETRY; j++)
+            {
+                target = (target + 1) % numberOfCores;
+                if (target == stackId)
+                {
+                    continue;
+                }
+
+                int count = Stacks[target].Count;
+                if (count >= Settings.CUTOFFDEPTH)
+                {
+                    lock (Stacks[target])
+                    {
+                        Vertex[] vertices = new Vertex[count / 2 + 1];
+                        Stacks[target].TryPopRange(vertices, 0, count / 2);
+                        Stacks[stackId].PushRange(vertices);
+                    }
+                    return;
+                }
+            }
+
         }
     }
 }
