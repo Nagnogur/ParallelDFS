@@ -115,8 +115,8 @@ namespace ParallelDFS.Graph1
                             graph.vertices[id].Edges.Add(graph.vertices[edge]);
                         }
                     }
+                    graph.vertices[id].Edges.Reverse();
 
-                    
                 }
             }
             return graph;

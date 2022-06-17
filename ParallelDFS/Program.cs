@@ -11,94 +11,130 @@ namespace ParallelDFS
     {
         static void Main(string[] args)
         {
-            // Graph generation
-            //Graph graph = new Graph().GenerateGraph(Settings.VERTEX_NUM);
-            string fileName = "graph1.txt";
-            Graph graph = new Graph().FromFile(fileName);
-            
-            //graph.ToFile(fileName);
+            Graph graph;
+            if (Settings.GENERATE_GRAPH)
+            {
+                graph = new Graph().GenerateGraph(Settings.VERTEX_NUM);
+            }
+            else
+            {
+                graph = new Graph().FromFile(Settings.GRAPH_FILE_PATH);
+            }
 
+            if (Settings.GRAPH_WRITE_TO_FILE)
+            {
+                graph.ToFile(Settings.GRAPH_WRITE_PATH);
+            }
+            
             /*graph.ToString();
             Console.WriteLine();*/
 
             // starting vertex
-            Vertex start = graph.vertices[0];
-            Vertex end = null; // graph.vertices[Settings.VERTEX_NUM - 1];
-            int n = Settings.VERTEX_NUM;
-
-            // initialize classes
-            Try search = new Try();
-            DFS sequential = new DFS();
-
-            // parallel run
-            var watch = new System.Diagnostics.Stopwatch();
-            watch.Start();
-            search.Start(start);
-            watch.Stop();
-            Console.WriteLine($"Parallel Execution Time: {watch.ElapsedMilliseconds} ms");
-
-            // sequential run
-            watch.Restart();
-            Vertex[] sequentialParents = sequential.DepthFirstTraversal(n, start);
-            watch.Stop();
-            Console.WriteLine($"Sequential Execution Time: {watch.ElapsedMilliseconds} ms");
-
-            // parallel results
-            var parallelVisitedVertexes = search.Visited.Keys;
-            var parallelParentsKeyPair = search.Parents.ToArray();
-
-            List<int> parallelVisitedIds = parallelVisitedVertexes.Select((v) => v.Id).OrderBy((i) => i).ToList();
-            Vertex[] parallelParents = new Vertex[n];
-            foreach (var par in parallelParentsKeyPair)
+            Vertex start = graph.vertices[Settings.START_VERTEX_NUM];
+            Vertex end;
+            if (Settings.WITH_END_VERTEX)
             {
-                parallelParents[par.Key.Id] = par.Value;
+                end = graph.vertices[Settings.END_VERTEX_NUM];
+            }
+            else
+            {
+                end = null;
             }
 
-            // sequential results
-            var sequentialVisitedVertexes = sequential.visited;
+            long totalParallelTime = 0;
+            long totalSequentialTime = 0;
 
-            List<int> sequentialVisitedIds = sequentialVisitedVertexes.Select((v) => v.Id).OrderBy((i) => i).ToList();
-            List<int> sequentialParentsIds = sequentialParents.Select((v) => v == null ? -1 : v.Id).ToList();
+            for (int i = 0; i < Settings.ITERATIONS_NUM; i++)
+            {
+                // initialize classes
+                Try search = new Try();
+                DFS sequential = new DFS();
 
+                // parallel run
+                var watch = new System.Diagnostics.Stopwatch();
+                watch.Start();
+                search.Start(start, end);
+                watch.Stop();
+                Console.WriteLine($"Parallel Execution Time №{i}: {watch.ElapsedMilliseconds} ms");
+                totalParallelTime += watch.ElapsedMilliseconds;
+
+                // sequential run
+                watch.Restart();
+                Vertex[] sequentialParents = sequential.DepthFirstTraversal(Settings.VERTEX_NUM, start, end);
+                watch.Stop();
+                Console.WriteLine($"Sequential Execution Time №{i}: {watch.ElapsedMilliseconds} ms");
+                totalSequentialTime += watch.ElapsedMilliseconds;
+
+                if (!Settings.WITH_END_VERTEX)
+                {
+                    var parallelVisited = search.Visited.Keys;
+                    HashSet<Vertex> sequentialVisited = sequential.visited;
+
+                    if (!IsVisitedSame(parallelVisited, sequentialVisited))
+                    {
+                        Console.WriteLine("Visited vertices are not the same");
+                        return;
+                    }
+                }
+
+                var parallelParentsKeyPair = search.Parents.ToArray();
+                Vertex[] parallelParents = new Vertex[Settings.VERTEX_NUM];
+                foreach (var par in parallelParentsKeyPair)
+                {
+                    parallelParents[par.Key.Id] = par.Value;
+                }
+
+                // Check if parents possible (there are paths from each parent)
+                if (!IsPossiblePath(graph, parallelParents))
+                {
+                    Console.WriteLine("Path is not possible par");
+                }
+                if (!IsPossiblePath(graph, sequentialParents))
+                {
+                    Console.WriteLine("Path is not possible seq");
+                }
+
+                if (Settings.WITH_END_VERTEX)
+                {
+                    // Check if sequential path is right (with end vertex)
+                    var sequentialPath = GetPath(sequentialParents, start, end);
+                    if (!CheckPath(sequentialPath, start))
+                    {
+                        Console.WriteLine("Sequential path is wrong");
+                    }
+
+                    var parallelPath = GetPath(parallelParents, start, end);
+                    if (!CheckPath(parallelPath, start))
+                    {
+                        Console.WriteLine("Parallel path is wrong");
+                    }
+                }
+
+                Console.WriteLine();
+            }
+
+            Console.WriteLine();
+            long avgParallelTime = (totalParallelTime) / Settings.ITERATIONS_NUM;
+            long avgSequentialTime = (totalSequentialTime) / Settings.ITERATIONS_NUM;
+            Console.WriteLine($"Parallel Avarage Execution Time: {avgParallelTime} ms");
+            Console.WriteLine($"Sequential Avarage Execution Time: {avgSequentialTime} ms");
+        }
+
+        static bool IsVisitedSame(ICollection<Vertex> first, ICollection<Vertex> second)
+        {
             // check if visited match (no goal vertex)
-            for (int i = 0; i < parallelVisitedIds.Count; i++)
+            foreach (var visited in first)
             {
-                if (i >= sequentialParentsIds.Count || parallelVisitedIds[i] != sequentialVisitedIds[i])
+                if (first.Count != second.Count)
                 {
-                    Console.WriteLine("Visited vertices do not match!!!");
+                    return false;
+                }
+                if (!second.Contains(visited))
+                {
+                    return false;
                 }
             }
-
-            // Check if parents possible (there are paths from each parent)
-            if (!IsPossiblePath(graph, parallelParents))
-            {
-                Console.WriteLine("Path is not possible");
-            }
-            if (!IsPossiblePath(graph, sequentialParents))
-            {
-                Console.WriteLine("Path is not possible");
-            }
-
-            if (end != null)
-            {
-                // Check if sequential path is right (with end vertex)
-                var sequentialPath = GetPath(sequentialParents, start, end);
-                if (!CheckPath(sequentialPath, start))
-                {
-                    Console.WriteLine("Sequential path is wrong");
-                }
-
-                var parallelPath = GetPath(parallelParents, start, end);
-                if (!CheckPath(parallelPath, start))
-                {
-                    Console.WriteLine("Parallel path is wrong");
-                }
-            }
-
-
-
-
-            //Console.ReadLine();
+            return true;
         }
 
         static bool IsPossiblePath(Graph graph, Vertex[] parents)
@@ -121,7 +157,6 @@ namespace ParallelDFS
 
         static bool CheckPath(List<Vertex> path, Vertex start)
         {
-            path.Reverse();
             Vertex v = start;
             for (int i = 1; i < path.Count; i++)
             {
@@ -146,7 +181,8 @@ namespace ParallelDFS
             {
                 path.Add(v);
                 if (v.Equals(start))
-                {                    
+                {
+                    path.Reverse();
                     return path;
                 }
 

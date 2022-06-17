@@ -22,6 +22,10 @@ namespace ParallelDFS.ParallelSearch
         {
             Stacks = SplitVertexList(start.Edges, numberOfCores);
             Visited.TryAdd(start, 0);
+            foreach (var edge in start.Edges)
+            {
+                Parents.TryAdd(edge, start);
+            }
             if (start.Equals(end))
             {
                 // TODO
@@ -54,8 +58,10 @@ namespace ParallelDFS.ParallelSearch
 
         public void Search(int stackId, Vertex previous, Vertex end = null)
         {
-            while (!Stacks[stackId].IsEmpty)
+            int timeout = 0;
+            while (!Stacks[stackId].IsEmpty || timeout < Settings.TIMEOUT)
             {
+                timeout++;
                 if (stopThreads)
                 {
                     return;
@@ -73,6 +79,7 @@ namespace ParallelDFS.ParallelSearch
                 // There is elements in stack. Get top one
                 if (Stacks[stackId].TryPop(out current))
                 {
+                    timeout = 0;
                     // current == end
                     if (current.Equals(end))
                     {
