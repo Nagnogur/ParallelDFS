@@ -12,7 +12,12 @@ namespace ParallelDFS
         static void Main(string[] args)
         {
             // Graph generation
-            Graph graph = new Graph().GenerateGraph(Settings.VERTEX_NUM);
+            //Graph graph = new Graph().GenerateGraph(Settings.VERTEX_NUM);
+            string fileName = "graph1.txt";
+            Graph graph = new Graph().FromFile(fileName);
+            
+            //graph.ToFile(fileName);
+
             /*graph.ToString();
             Console.WriteLine();*/
 
