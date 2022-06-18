@@ -13,17 +13,19 @@ namespace ParallelDFS.ParallelSearch
     {
         volatile bool stopThreads = false;
         static int numberOfCores = Settings.PARALELLISM_DEGREE;
+        
 
         List<ConcurrentStack<Vertex>> Stacks = new List<ConcurrentStack<Vertex>>(numberOfCores);
 
-        public ConcurrentDictionary<Vertex, byte> Visited { get; set; } = new ConcurrentDictionary<Vertex, byte>();
-        //public ConcurrentDictionary<Vertex, Vertex> Parents { get; set; } = new ConcurrentDictionary<Vertex, Vertex>();
+        public ConcurrentDictionary<Vertex, Vertex> Parents { get; set; } = new ConcurrentDictionary<Vertex, Vertex>();
 
-        public Task[] Start(Vertex start, Vertex end = null)
+        public void DepthFirstSearch(Vertex start, Vertex end = null)
         {
+            CancellationTokenSource tokenSource = new CancellationTokenSource();
+            var token = tokenSource.Token;
+
             Stacks = SplitVertexList(start.Edges, numberOfCores);
-            Visited.TryAdd(start, 0);
-            //List<Thread> thr = new List<Thread>();
+
             Task[] tasks = new Task[numberOfCores];
 
             foreach (var edge in start.Edges)
@@ -34,19 +36,27 @@ namespace ParallelDFS.ParallelSearch
             {
                 // TODO
                 // start == end
-                return null;
+                return;
             }
 
             for (int i = 0; i < numberOfCores; i++)
             {
                 int j = i;
-                tasks[i] = Task.Factory.StartNew(() => Search(j, start, end));
-                //thr.Add(thread);
-                //thread.Start();
+                tasks[j] = Task.Factory.StartNew(() => Dfs(j, Stacks[j], end), token);
             }
-            return tasks;
+
+            if (end != null)
+            {
+                WhenFound(tasks);
+                tokenSource.Cancel();
+            }
+            else
+            {
+                Task.WaitAll(tasks);
+            }
         }
-        public List<ConcurrentStack<Vertex>> SplitVertexList(List<Vertex> vertices, int n)
+
+        List<ConcurrentStack<Vertex>> SplitVertexList(List<Vertex> vertices, int n)
         {
             var stacks = new List<ConcurrentStack<Vertex>>();
             var size = vertices.Count / n;
@@ -64,19 +74,20 @@ namespace ParallelDFS.ParallelSearch
         }
 
 
-        public void Search(int stackId, Vertex previous, Vertex end = null)
+        void Dfs(int stackId, ConcurrentStack<Vertex> st, Vertex end = null)
         {
             int timeout = 0;
-            while (!Stacks[stackId].IsEmpty || timeout < Settings.TIMEOUT)
+            while (!st.IsEmpty || timeout < Settings.TIMEOUT)
             {
-                timeout++;
-                if (stopThreads)
+/*                if (stopThreads)
                 {
                     return;
-                }
+                }*/
+                timeout++;
+                
 
                 // if thread stack is empty try to get work 
-                if (Stacks[stackId].IsEmpty)
+                if (st.IsEmpty)
                 {
                     // TODO
                     if (!SplitStack(stackId))
@@ -84,43 +95,36 @@ namespace ParallelDFS.ParallelSearch
                         return;
                     }
                 }
+                
 
                 Vertex current;
                 // There is elements in stack. Get top one
-                if (Stacks[stackId].TryPop(out current))
+                
+                if (st.TryPop(out current))
                 {
                     timeout = 0;
                     // current == end
                     if (current.Equals(end))
                     {
                         stopThreads = true;
-                        
                         return;
                     }
 
-                    if (!Visited.TryAdd(current, 0))
-                    {
-                        // TODO if visited
-                        continue;
-                    }
-
-                    // maybe need synch, todo
-                    //parents.TryAdd(current, previous);
-
                     var neighbours = current.Edges;
-                    //neighbours.Reverse();
 
                     // copy elements and go through them
                     foreach (var neighbour in neighbours.ToList())
                     {
-                        if (!Visited.ContainsKey(neighbour))
+                        if (!Parents.ContainsKey(neighbour))
                         {
-                            Stacks[stackId].Push(neighbour);
+                            st.Push(neighbour);
                             Parents.TryAdd(neighbour, current);
                         }
                     }
                 }
+                
             }
+            
         }
 
         bool SplitStack(int stackId)
@@ -150,30 +154,22 @@ namespace ParallelDFS.ParallelSearch
 
         }
 
-        /*bool SplitStack(int stackId)
+        async void WhenFound(Task[] tasks)
         {
-            int target = (stackId + 1) % numberOfCores;
-            for (int j = 0; j < Settings.NUMRETRY; j++)
+            int completed = 0;
+            while (tasks.Length > 0)
             {
-                target = (target + 1) % numberOfCores;
-                if (target == stackId)
+                Task task = await Task.WhenAny(tasks);
+                if (task.Status == TaskStatus.RanToCompletion)
                 {
-                    continue;
-                }
-
-                if (Stacks[target].Count >= Settings.CUTOFFDEPTH)
-                {
-                    lock (Stacks[target])
+                    completed++;
+                    if (stopThreads || completed >= tasks.Length)
                     {
-                        Vertex[] vertices = new Vertex[count / 2 + 1];
-                        Stacks[target].TryPopRange(vertices, 0, count / 2);
-                        Stacks[stackId].PushRange(vertices);
+                        return;
                     }
-                    return true;
+                    
                 }
             }
-            return false;
-
-        }*/
+        }
     }
 }

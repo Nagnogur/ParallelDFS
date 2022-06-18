@@ -18,7 +18,7 @@ namespace ParallelDFS
 
         // End vertex
         public const int END_VERTEX_NUM = VERTEX_NUM - 1;
-        public const bool WITH_END_VERTEX = false;
+        public const bool WITH_END_VERTEX = true;
 
         // Max number of threads
         public const int PARALELLISM_DEGREE = 2;

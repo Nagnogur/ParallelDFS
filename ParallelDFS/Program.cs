@@ -12,6 +12,51 @@ namespace ParallelDFS
     {
         static void Main(string[] args)
         {
+            RunBoth();
+            /*Graph graph;
+            if (Settings.GENERATE_GRAPH)
+            {
+                graph = new Graph().GenerateGraph(Settings.VERTEX_NUM);
+            }
+            else
+            {
+                graph = new Graph().FromFile(Settings.GRAPH_FILE_PATH);
+            }
+
+            Vertex start = graph.vertices[Settings.START_VERTEX_NUM];
+            Vertex end;
+            if (Settings.WITH_END_VERTEX)
+            {
+                end = graph.vertices[Settings.END_VERTEX_NUM];
+            }
+            else
+            {
+                end = null;
+            }
+
+            long totalSequentialTime = 0;
+
+            for (int i = 0; i < Settings.ITERATIONS_NUM; i++)
+            {
+                // initialize classes
+                ParallelDfs parallel = new ParallelDfs();
+
+                // parallel run
+                var watch = new System.Diagnostics.Stopwatch();
+                watch.Start();
+                parallel.Start(start, end);
+
+                watch.Stop();
+                Console.WriteLine($"Execution Time №{i}: {watch.ElapsedMilliseconds} ms");
+
+                Console.WriteLine($"Block: {parallel.Total.Max()} ms");
+
+                totalSequentialTime += watch.ElapsedMilliseconds;
+            }
+            Console.WriteLine($"Avg: {totalSequentialTime / Settings.ITERATIONS_NUM} ms");*/
+        }
+        static void RunBoth()
+        {
             Graph graph;
             if (Settings.GENERATE_GRAPH)
             {
@@ -54,8 +99,7 @@ namespace ParallelDFS
                 // parallel run
                 var watch = new System.Diagnostics.Stopwatch();
                 watch.Start();
-                var tasks = search.Start(start, end);
-                Task.WaitAll(tasks);
+                search.DepthFirstSearch(start, end);
 
                 watch.Stop();
                 Console.WriteLine($"Parallel Execution Time №{i}: {watch.ElapsedMilliseconds} ms");
@@ -71,7 +115,7 @@ namespace ParallelDFS
 
                 if (!Settings.WITH_END_VERTEX)
                 {
-                    var parallelVisited = search.Visited.Keys;
+                    var parallelVisited = search.Parents.Keys;
                     HashSet<Vertex> sequentialVisited = sequential.Visited;
 
                     if (!IsVisitedSame(parallelVisited, sequentialVisited))
