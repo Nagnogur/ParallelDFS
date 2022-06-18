@@ -2,57 +2,178 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Threading.Tasks;
 using System.Collections.Concurrent;
+using System.Threading;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace ParallelDFS.ParallelSearch
 {
-    class DFSParallel
+    public class ParallelDfs
     {
-        Vertex[] visited;
-        bool found = false;
-        async void DFSUtil(Vertex v, Vertex parent, Vertex end = null)
+        volatile bool stopThreads = false;
+        static int numberOfCores = Settings.PARALELLISM_DEGREE;
+
+        List<ConcurrentStack<Vertex>> Stacks = new List<ConcurrentStack<Vertex>>(numberOfCores);
+
+        public ConcurrentDictionary<Vertex, byte> Visited { get; set; } = new ConcurrentDictionary<Vertex, byte>();
+        //public ConcurrentDictionary<Vertex, Vertex> Parents { get; set; } = new ConcurrentDictionary<Vertex, Vertex>();
+
+        public Task[] Start(Vertex start, Vertex end = null)
         {
-            // Mark the current
-            // node as visited and print it
-            if (v.Equals(end))
+            Stacks = SplitVertexList(start.Edges, numberOfCores);
+            Visited.TryAdd(start, 0);
+            //List<Thread> thr = new List<Thread>();
+            Task[] tasks = new Task[numberOfCores];
+
+            foreach (var edge in start.Edges)
             {
-                visited[v.Id] = parent;
-                found = true;
-                return;
+                Parents.TryAdd(edge, start);
+            }
+            if (start.Equals(end))
+            {
+                // TODO
+                // start == end
+                return null;
             }
 
-            if (visited[v.Id] != null || found)
+            for (int i = 0; i < numberOfCores; i++)
             {
-                return;
+                int j = i;
+                tasks[i] = Task.Factory.StartNew(() => Search(j, start, end));
+                //thr.Add(thread);
+                //thread.Start();
+            }
+            return tasks;
+        }
+        public List<ConcurrentStack<Vertex>> SplitVertexList(List<Vertex> vertices, int n)
+        {
+            var stacks = new List<ConcurrentStack<Vertex>>();
+            var size = vertices.Count / n;
+            for (int i = 0; i < n - 1; i++)
+            {
+                ConcurrentStack<Vertex> st = new ConcurrentStack<Vertex>();
+                st.PushRange(vertices.Skip(i * size).Take(size).ToArray());
+                stacks.Add(st);
             }
 
-            visited[v.Id] = parent;
-
-            // Recur for all the
-            // vertices adjacent to this
-            // vertex
-            Parallel.ForEach(v.Edges, i =>
-           {
-               if (visited[i.Id] == null && !found)
-                   DFSUtil(i, v, end);
-           });
+            ConcurrentStack<Vertex> st1 = new ConcurrentStack<Vertex>();
+            st1.PushRange(vertices.Skip((n - 1) * size).ToArray());
+            stacks.Add(st1);
+            return stacks;
         }
 
-        public Vertex[] DFSPar(int n, Vertex start, Vertex end = null)
+
+        public void Search(int stackId, Vertex previous, Vertex end = null)
         {
-            // Mark all the vertices as not visited(set as
-            // false by default in java)
-            visited = new Vertex[n];
+            int timeout = 0;
+            while (!Stacks[stackId].IsEmpty || timeout < Settings.TIMEOUT)
+            {
+                timeout++;
+                if (stopThreads)
+                {
+                    return;
+                }
 
-            // Call the recursive helper
-            // function to print DFS
-            // traversal starting from
-            // all vertices one by one
-            DFSUtil(start, start, end);
-            return visited;
+                // if thread stack is empty try to get work 
+                if (Stacks[stackId].IsEmpty)
+                {
+                    // TODO
+                    if (!SplitStack(stackId))
+                    {
+                        return;
+                    }
+                }
+
+                Vertex current;
+                // There is elements in stack. Get top one
+                if (Stacks[stackId].TryPop(out current))
+                {
+                    timeout = 0;
+                    // current == end
+                    if (current.Equals(end))
+                    {
+                        stopThreads = true;
+                        
+                        return;
+                    }
+
+                    if (!Visited.TryAdd(current, 0))
+                    {
+                        // TODO if visited
+                        continue;
+                    }
+
+                    // maybe need synch, todo
+                    //parents.TryAdd(current, previous);
+
+                    var neighbours = current.Edges;
+                    //neighbours.Reverse();
+
+                    // copy elements and go through them
+                    foreach (var neighbour in neighbours.ToList())
+                    {
+                        if (!Visited.ContainsKey(neighbour))
+                        {
+                            Stacks[stackId].Push(neighbour);
+                            Parents.TryAdd(neighbour, current);
+                        }
+                    }
+                }
+            }
         }
-        
+
+        bool SplitStack(int stackId)
+        {
+            int target = (stackId + 1) % numberOfCores;
+            for (int j = 0; j < Settings.NUMRETRY; j++)
+            {
+                target = (target + 1) % numberOfCores;
+                if (target == stackId)
+                {
+                    continue;
+                }
+
+                if (Stacks[target].Count >= Settings.CUTOFFDEPTH)
+                {
+                    Vertex[] vertices = new Vertex[Stacks[target].Count / 2 + 1];
+                    int poped = Stacks[target].TryPopRange(vertices, 0, Stacks[target].Count / 2);
+                    if (poped == 0)
+                    {
+                        return false;
+                    }
+                    Stacks[stackId].PushRange(vertices.Take(poped).Reverse().ToArray());
+                    return true;
+                }
+            }
+            return false;
+
+        }
+
+        /*bool SplitStack(int stackId)
+        {
+            int target = (stackId + 1) % numberOfCores;
+            for (int j = 0; j < Settings.NUMRETRY; j++)
+            {
+                target = (target + 1) % numberOfCores;
+                if (target == stackId)
+                {
+                    continue;
+                }
+
+                if (Stacks[target].Count >= Settings.CUTOFFDEPTH)
+                {
+                    lock (Stacks[target])
+                    {
+                        Vertex[] vertices = new Vertex[count / 2 + 1];
+                        Stacks[target].TryPopRange(vertices, 0, count / 2);
+                        Stacks[stackId].PushRange(vertices);
+                    }
+                    return true;
+                }
+            }
+            return false;
+
+        }*/
     }
 }

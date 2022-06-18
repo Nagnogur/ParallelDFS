@@ -4,6 +4,7 @@ using ParallelDFS.Graph1;
 using ParallelDFS.Sequential;
 using ParallelDFS.ParallelSearch;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace ParallelDFS
 {
@@ -47,20 +48,23 @@ namespace ParallelDFS
             for (int i = 0; i < Settings.ITERATIONS_NUM; i++)
             {
                 // initialize classes
-                Try search = new Try();
-                DFS sequential = new DFS();
+                ParallelDfs search = new ParallelDfs();
+                SequentialDfs sequential = new SequentialDfs();
 
                 // parallel run
                 var watch = new System.Diagnostics.Stopwatch();
                 watch.Start();
-                search.Start(start, end);
+                var tasks = search.Start(start, end);
+                Task.WaitAll(tasks);
+
                 watch.Stop();
                 Console.WriteLine($"Parallel Execution Time №{i}: {watch.ElapsedMilliseconds} ms");
+
                 totalParallelTime += watch.ElapsedMilliseconds;
 
                 // sequential run
                 watch.Restart();
-                Vertex[] sequentialParents = sequential.DepthFirstTraversal(Settings.VERTEX_NUM, start, end);
+                Vertex[] sequentialParents = sequential.DepthFirstSearch(Settings.VERTEX_NUM, start, end);
                 watch.Stop();
                 Console.WriteLine($"Sequential Execution Time №{i}: {watch.ElapsedMilliseconds} ms");
                 totalSequentialTime += watch.ElapsedMilliseconds;
@@ -68,7 +72,7 @@ namespace ParallelDFS
                 if (!Settings.WITH_END_VERTEX)
                 {
                     var parallelVisited = search.Visited.Keys;
-                    HashSet<Vertex> sequentialVisited = sequential.visited;
+                    HashSet<Vertex> sequentialVisited = sequential.Visited;
 
                     if (!IsVisitedSame(parallelVisited, sequentialVisited))
                     {
