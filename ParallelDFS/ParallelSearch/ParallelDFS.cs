@@ -1,7 +1,6 @@
 ﻿using ParallelDFS.Graph1;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Linq;
@@ -176,7 +175,7 @@ namespace ParallelDFS.ParallelSearch
             int target = stackId;
 
             // Робить певну кількість спроб, обмежену Settings.NUMRETRY
-            for (int j = 0; j < Settings.NUMRETRY; j++)
+            for (int j = 0; j < Settings.SPLIT_ATTEMPTS; j++)
             {
                 target = (target + 1) % threadNumber;
                 // Пропускаємо поточний стек

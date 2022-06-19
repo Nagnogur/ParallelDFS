@@ -1,38 +1,32 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace ParallelDFS
+﻿namespace ParallelDFS
 {
     public static class Settings
     {
-        // Graph settings
-        public const int VERTEX_NUM = 100000;
+        // Налаштування графа
+        public const int VERTEX_NUM = 500000;
         public const bool GENERATE_GRAPH = false;
-        public const string GRAPH_FILE_PATH = "graph_100000.txt";
+        public const string GRAPH_FILE_PATH = "graph_500000.txt";
         public const bool GRAPH_WRITE_TO_FILE = false;
-        public const string GRAPH_WRITE_PATH = "graph_100000.txt";
+        public const string GRAPH_WRITE_PATH = "graph_500000.txt";
 
-        // Start vertex
+        // Початкова вершина
         public const int START_VERTEX_NUM = 0;
 
-        // End vertex
+        // Кінцева вершина
         public const int END_VERTEX_NUM = VERTEX_NUM - 1;
-        public const bool WITH_END_VERTEX = true;
+        public const bool WITH_END_VERTEX = false;
 
-        // Max number of threads
+        // Кількість використаних потоків
         public const int PARALELLISM_DEGREE = 4;
         
-        // Stack split parameters
-        public const int NUMRETRY = 5;
+        // Параметри розбивання стеку при розподілу роботи
+        public const int SPLIT_ATTEMPTS = 5;
         public const int CUTOFFDEPTH = 100;
 
-        // Number of iterations
+        // Кількість запусків програми
         public const int ITERATIONS_NUM = 20;
 
-        // Timeout for stack search
+        // Кількість ітерацій, яку потік чекає при нестачі роботи
         public const int TIMEOUT = 5;
-
-
     }
 }

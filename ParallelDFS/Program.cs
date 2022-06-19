@@ -5,6 +5,7 @@ using ParallelDFS.Sequential;
 using ParallelDFS.ParallelSearch;
 using System.Linq;
 using System.Threading.Tasks;
+using System.IO;
 
 namespace ParallelDFS
 {
@@ -12,18 +13,17 @@ namespace ParallelDFS
     {
         static void Main(string[] args)
         {
-            RunBoth();
-            /*Graph graph;
-            if (Settings.GENERATE_GRAPH)
+            Graph graph;
+            try
             {
-                graph = new Graph().GenerateGraph(Settings.VERTEX_NUM);
+                 graph = GetGraph();
             }
-            else
+            catch (InvalidDataException)
             {
-                graph = new Graph().FromFile(Settings.GRAPH_FILE_PATH);
+                Console.WriteLine("Graph file is invalid");
+                return;
             }
-
-            Vertex start = graph.vertices[Settings.START_VERTEX_NUM];
+            // starting vertex
             Vertex end;
             if (Settings.WITH_END_VERTEX)
             {
@@ -33,29 +33,13 @@ namespace ParallelDFS
             {
                 end = null;
             }
-
-            long totalSequentialTime = 0;
-
-            for (int i = 0; i < Settings.ITERATIONS_NUM; i++)
-            {
-                // initialize classes
-                ParallelDfs parallel = new ParallelDfs();
-
-                // parallel run
-                var watch = new System.Diagnostics.Stopwatch();
-                watch.Start();
-                parallel.Start(start, end);
-
-                watch.Stop();
-                Console.WriteLine($"Execution Time №{i}: {watch.ElapsedMilliseconds} ms");
-
-                Console.WriteLine($"Block: {parallel.Total.Max()} ms");
-
-                totalSequentialTime += watch.ElapsedMilliseconds;
-            }
-            Console.WriteLine($"Avg: {totalSequentialTime / Settings.ITERATIONS_NUM} ms");*/
+            RunBoth(graph, graph.vertices[Settings.START_VERTEX_NUM], end);
         }
-        static void RunBoth()
+
+        /// <summary>
+        /// Отримує граф відповідно до налаштувань
+        /// </summary>
+        static Graph GetGraph()
         {
             Graph graph;
             if (Settings.GENERATE_GRAPH)
@@ -71,51 +55,46 @@ namespace ParallelDFS
             {
                 graph.ToFile(Settings.GRAPH_WRITE_PATH);
             }
-            
-            /*graph.ToString();
-            Console.WriteLine();*/
+            return graph;
+        }
 
-            // starting vertex
-            Vertex start = graph.vertices[Settings.START_VERTEX_NUM];
-            Vertex end;
-            if (Settings.WITH_END_VERTEX)
-            {
-                end = graph.vertices[Settings.END_VERTEX_NUM];
-            }
-            else
-            {
-                end = null;
-            }
-
+        /// <summary>
+        /// Запускає паралельний та послідовний алгоритми певну кількість ітерацій на одному графі.
+        /// </summary>
+        static void RunBoth(Graph graph, Vertex start, Vertex end)
+        {
             long totalParallelTime = 0;
             long totalSequentialTime = 0;
 
             for (int i = 0; i < Settings.ITERATIONS_NUM; i++)
             {
-                // initialize classes
-                ParallelDfs search = new ParallelDfs();
+                // Ініціалізація класів
+                ParallelDfs parallel = new ParallelDfs();
                 SequentialDfs sequential = new SequentialDfs();
 
-                // parallel run
+                // Запуск паралельного пошуку в глибину
                 var watch = new System.Diagnostics.Stopwatch();
                 watch.Start();
-                search.DepthFirstSearch(start, end);
+
+                parallel.DepthFirstSearch(start, end);
 
                 watch.Stop();
                 Console.WriteLine($"Parallel Execution Time №{i}: {watch.ElapsedMilliseconds} ms");
-
                 totalParallelTime += watch.ElapsedMilliseconds;
 
-                // sequential run
+                // Запуск послідовного пошуку в глибину
                 watch.Restart();
+
                 Vertex[] sequentialParents = sequential.DepthFirstSearch(Settings.VERTEX_NUM, start, end);
+                
                 watch.Stop();
                 Console.WriteLine($"Sequential Execution Time №{i}: {watch.ElapsedMilliseconds} ms");
                 totalSequentialTime += watch.ElapsedMilliseconds;
 
+                // Перевірка при обході графа чи співпадають відвідані вершини
                 if (!Settings.WITH_END_VERTEX)
                 {
-                    var parallelVisited = search.Parents.Keys;
+                    var parallelVisited = parallel.Parents.Keys;
                     HashSet<Vertex> sequentialVisited = sequential.Visited;
 
                     if (!IsVisitedSame(parallelVisited, sequentialVisited))
@@ -125,14 +104,15 @@ namespace ParallelDFS
                     }
                 }
 
-                var parallelParentsKeyPair = search.Parents.ToArray();
+                // Підготовка до перевірки шляхів
+                var parallelParentsKeyPair = parallel.Parents.ToArray();
                 Vertex[] parallelParents = new Vertex[Settings.VERTEX_NUM];
                 foreach (var par in parallelParentsKeyPair)
                 {
                     parallelParents[par.Key.Id] = par.Value;
                 }
 
-                // Check if parents possible (there are paths from each parent)
+                // Перевірка чи можливі шляхи з визначених алгоритмами батьківських вершин
                 if (!IsPossiblePath(graph, parallelParents))
                 {
                     Console.WriteLine("Path is not possible par");
@@ -142,19 +122,21 @@ namespace ParallelDFS
                     Console.WriteLine("Path is not possible seq");
                 }
 
+                // Перевірки на знаходження шляху до кінцевої вершини
                 if (Settings.WITH_END_VERTEX)
                 {
-                    // Check if sequential path is right (with end vertex)
                     var sequentialPath = GetPath(sequentialParents, start, end);
                     if (!CheckPath(sequentialPath, start))
                     {
-                        Console.WriteLine("Sequential path is wrong");
+                        Console.WriteLine("Sequential dfs did not find path to end vertex " +
+                            "or path is invalid");
                     }
 
                     var parallelPath = GetPath(parallelParents, start, end);
                     if (!CheckPath(parallelPath, start))
                     {
-                        Console.WriteLine("Parallel path is wrong");
+                        Console.WriteLine("Parallel dfs did not find path to end vertex " +
+                            "or path is invalid");
                     }
                 }
 
@@ -168,9 +150,12 @@ namespace ParallelDFS
             Console.WriteLine($"Sequential Avarage Execution Time: {avgSequentialTime} ms");
         }
 
+        /// <summary>
+        /// Перевірка знаходження всіх елементів першої колекції в другій 
+        /// при однаковій кількості елементів
+        /// </summary>
         static bool IsVisitedSame(ICollection<Vertex> first, ICollection<Vertex> second)
         {
-            // check if visited match (no goal vertex)
             foreach (var visited in first)
             {
                 if (first.Count != second.Count)
@@ -217,11 +202,11 @@ namespace ParallelDFS
             return true;
         }
 
-        // Get path from parents
-        static List<Vertex> GetPath(Vertex[] vertices, Vertex start, Vertex end)
+        // Отримує шлях до кінцевої вершини з початкової при даному наборі батьківських вершин
+        static List<Vertex> GetPath(Vertex[] parents, Vertex start, Vertex end)
         {
             int counter = 0;
-            Vertex v = vertices[end.Id];
+            Vertex v = parents[end.Id];
             List<Vertex> path = new List<Vertex>();
             path.Add(end);
 
@@ -234,12 +219,12 @@ namespace ParallelDFS
                     return path;
                 }
 
-                if (counter > vertices.Length)
+                if (counter > parents.Length)
                 {
                     return new List<Vertex>();
                 }
 
-                v = vertices[v.Id];
+                v = parents[v.Id];
                 counter++;
             }
             return new List<Vertex>();
