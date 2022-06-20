@@ -16,7 +16,7 @@ namespace ParallelDFS
             Graph graph;
             try
             {
-                 graph = GetGraph();
+                 graph = GetGraph(Settings.BIDIRECTIONAL);
             }
             catch (InvalidDataException)
             {
@@ -33,18 +33,19 @@ namespace ParallelDFS
             {
                 end = null;
             }
-            RunBoth(graph, graph.vertices[Settings.START_VERTEX_NUM], end);
+            PreparationRuns(graph, graph.vertices[Settings.START_VERTEX_NUM], end, 5);
+            RunBoth(graph, graph.vertices[Settings.START_VERTEX_NUM], end, Settings.ITERATIONS_NUM);
         }
 
         /// <summary>
         /// Отримує граф відповідно до налаштувань
         /// </summary>
-        static Graph GetGraph()
+        static Graph GetGraph(bool bidirectional)
         {
             Graph graph;
             if (Settings.GENERATE_GRAPH)
             {
-                graph = new Graph().GenerateGraph(Settings.VERTEX_NUM);
+                graph = new Graph().GenerateGraph(Settings.VERTEX_NUM, bidirectional);
             }
             else
             {
@@ -61,12 +62,13 @@ namespace ParallelDFS
         /// <summary>
         /// Запускає паралельний та послідовний алгоритми певну кількість ітерацій на одному графі.
         /// </summary>
-        static void RunBoth(Graph graph, Vertex start, Vertex end)
+        static void RunBoth(Graph graph, Vertex start, Vertex end, int iterations)
         {
-            long totalParallelTime = 0;
-            long totalSequentialTime = 0;
+            double totalParallelTime = 0;
+            double totalSequentialTime = 0;
+            double avgSpeedup = 0;
 
-            for (int i = 0; i < Settings.ITERATIONS_NUM; i++)
+            for (int i = 0; i < iterations; i++)
             {
                 // Ініціалізація класів
                 ParallelDfs parallel = new ParallelDfs();
@@ -79,8 +81,10 @@ namespace ParallelDFS
                 parallel.DepthFirstSearch(start, end);
 
                 watch.Stop();
-                Console.WriteLine($"Parallel Execution Time №{i}: {watch.ElapsedMilliseconds} ms");
-                totalParallelTime += watch.ElapsedMilliseconds;
+                double parallelTime = watch.Elapsed.TotalMilliseconds * 1000;
+                Console.WriteLine($"Parallel Execution Time №{i}: " +
+                    $"{Math.Round(parallelTime, 2)} µs");
+                totalParallelTime += watch.Elapsed.TotalMilliseconds;
 
                 // Запуск послідовного пошуку в глибину
                 watch.Restart();
@@ -88,9 +92,16 @@ namespace ParallelDFS
                 Vertex[] sequentialParents = sequential.DepthFirstSearch(Settings.VERTEX_NUM, start, end);
                 
                 watch.Stop();
-                Console.WriteLine($"Sequential Execution Time №{i}: {watch.ElapsedMilliseconds} ms");
-                totalSequentialTime += watch.ElapsedMilliseconds;
+                double sequentialTime = watch.Elapsed.TotalMilliseconds * 1000;
+                Console.WriteLine($"Sequential Execution Time №{i}: " +
+                    $"{Math.Round(sequentialTime, 2)} µs");
+                totalSequentialTime += watch.Elapsed.TotalMilliseconds;
 
+                double speedup = sequentialTime / parallelTime;
+                avgSpeedup += speedup;
+
+                Console.WriteLine($"Speedup: " +
+                    $"{Math.Round(speedup, 2)} µs");
                 // Перевірка при обході графа чи співпадають відвідані вершини
                 if (!Settings.WITH_END_VERTEX)
                 {
@@ -144,10 +155,27 @@ namespace ParallelDFS
             }
 
             Console.WriteLine();
-            long avgParallelTime = (totalParallelTime) / Settings.ITERATIONS_NUM;
-            long avgSequentialTime = (totalSequentialTime) / Settings.ITERATIONS_NUM;
-            Console.WriteLine($"Parallel Avarage Execution Time: {avgParallelTime} ms");
-            Console.WriteLine($"Sequential Avarage Execution Time: {avgSequentialTime} ms");
+            double avgParallelTime = totalParallelTime * 1000 / Settings.ITERATIONS_NUM;
+            double avgSequentialTime = totalSequentialTime * 1000 / Settings.ITERATIONS_NUM;
+            Console.WriteLine($"Avarage Parallel Execution Time: {Math.Round(avgParallelTime, 2)} µs");
+            Console.WriteLine($"Avarage Sequential Execution Time: {Math.Round(avgSequentialTime, 2)} µs");
+            Console.WriteLine($"Speedup: {Math.Round(avgSpeedup / Settings.ITERATIONS_NUM, 2)}");
+        }
+
+        static void PreparationRuns(Graph graph, Vertex start, Vertex end, int iterations)
+        {
+            for (int i = 0; i < iterations; i++)
+            {
+                // Ініціалізація класів
+                ParallelDfs parallel = new ParallelDfs();
+                SequentialDfs sequential = new SequentialDfs();
+
+                // Запуск паралельного пошуку в глибину
+                parallel.DepthFirstSearch(start, end);
+
+                // Запуск послідовного пошуку в глибину
+                sequential.DepthFirstSearch(Settings.VERTEX_NUM, start, end);
+            }
         }
 
         /// <summary>

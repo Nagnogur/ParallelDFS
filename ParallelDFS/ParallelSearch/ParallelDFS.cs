@@ -38,8 +38,6 @@ namespace ParallelDFS.ParallelSearch
             // Перевірка чи не співпадають початкова та кінцева вершини
             if (start.Equals(end))
             {
-                // TODO
-                // start == end
                 return;
             }
 
