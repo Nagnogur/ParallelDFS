@@ -10,10 +10,10 @@ namespace ParallelDFS.Graph1
     public class Graph
     {
         // Всі вершини графа
-        public List<Vertex> vertices { get; set; }
+        public List<Vertex> Vertices { get; set; }
         public Graph()
         {
-            vertices = new List<Vertex>();
+            Vertices = new List<Vertex>();
         }
 
         /// <summary>
@@ -21,14 +21,14 @@ namespace ParallelDFS.Graph1
         /// </summary>
         /// <param name="vertexNum"> Кількість вершин в графі </param>
         /// <param name="bidirectional"> Чи є граф неорієнтованим </param>
-        public Graph GenerateGraph(int vertexNum, bool bidirectional = false)
+        public Graph GenerateGraph(int vertexNum, bool bidirectional = false, bool toConsole = false)
         {
             Graph graph = new Graph();
 
             for (int i = 0; i < vertexNum; i++)
             {
                 Vertex vertex = new Vertex(i);
-                graph.vertices.Add(vertex);
+                graph.Vertices.Add(vertex);
             }
 
             Random rng = new Random();
@@ -37,26 +37,32 @@ namespace ParallelDFS.Graph1
                 for (int j = 0; j < rng.Next(vertexNum); j++)
                 {
                     int connected = rng.Next(vertexNum);
-                    if (connected == i || graph.vertices[i].Edges.Contains(graph.vertices[connected]))
+                    if (connected == i || graph.Vertices[i].Edges.Contains(graph.Vertices[connected]))
                     {
                         continue;
                     }
-                    graph.vertices[i].Edges.Add(graph.vertices[connected]);
+                    graph.Vertices[i].Edges.Add(graph.Vertices[connected]);
                     if (bidirectional)
                     {
-                        graph.vertices[connected].Edges.Add(graph.vertices[i]);
+                        graph.Vertices[connected].Edges.Add(graph.Vertices[i]);
                     }
                 }
-                Console.SetCursorPosition(0, Math.Max(Console.CursorTop - 1, 0));
-                ClearCurrentConsoleLine();
-                Console.WriteLine($"{i + 1}/{vertexNum} vertices");
+                if (toConsole)
+                {
+                    Console.SetCursorPosition(0, Math.Max(Console.CursorTop - 1, 0));
+                    ClearCurrentConsoleLine();
+                    Console.WriteLine($"{i + 1}/{vertexNum} vertices");
+                }
             }
 
             for (int i = 0; i < vertexNum; i++)
             {
-                graph.vertices[i].Edges.Sort();
+                graph.Vertices[i].Edges.Sort();
             }
-            Console.WriteLine("Graph generated");
+            if (toConsole)
+            {
+                Console.WriteLine("Graph generated");
+            }
             return graph;
         }
 
@@ -65,7 +71,7 @@ namespace ParallelDFS.Graph1
         /// </summary>
         public void ToString()
         {
-            foreach (var v in this.vertices)
+            foreach (var v in this.Vertices)
             {
                 Console.Write(v.Id + " : ");
                 foreach (var con in v.Edges)
@@ -84,8 +90,8 @@ namespace ParallelDFS.Graph1
         {
             using (StreamWriter writer = new StreamWriter(path))
             {
-                writer.WriteLine(vertices.Count);
-                foreach (Vertex v in vertices)
+                writer.WriteLine(Vertices.Count);
+                foreach (Vertex v in Vertices)
                 {
                     writer.Write(v.Id + ":");
                     foreach (Vertex to in v.Edges)
@@ -120,7 +126,7 @@ namespace ParallelDFS.Graph1
                 for (int i = 0; i < count; i++)
                 {
                     Vertex vertex = new Vertex(i);
-                    graph.vertices.Add(vertex);
+                    graph.Vertices.Add(vertex);
                 }
 
                 for (int i = 0; i < count; i++)
@@ -138,10 +144,10 @@ namespace ParallelDFS.Graph1
                         int edge;
                         if (int.TryParse(ed, out edge))
                         {
-                            graph.vertices[id].Edges.Add(graph.vertices[edge]);
+                            graph.Vertices[id].Edges.Add(graph.Vertices[edge]);
                         }
                     }
-                    graph.vertices[id].Edges.Reverse();
+                    graph.Vertices[id].Edges.Reverse();
                     Console.SetCursorPosition(0, Math.Max(Console.CursorTop - 1, 0));
                     ClearCurrentConsoleLine();
                     Console.WriteLine($"{i + 1}/{count} vertices");

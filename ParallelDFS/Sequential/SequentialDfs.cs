@@ -3,10 +3,10 @@ using System.Collections.Generic;
 
 namespace ParallelDFS.Sequential
 {
-    class SequentialDfs
+    public class SequentialDfs
     {
         // Список відвіданих вершин
-        public HashSet<Vertex> Visited = new HashSet<Vertex>();
+        public HashSet<Vertex> Visited { get; set; } = new HashSet<Vertex>();
 
         /// <summary>
         /// Виконує послідовний пошук в ширину
